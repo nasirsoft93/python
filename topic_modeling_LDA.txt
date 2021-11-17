@@ -1,0 +1,83 @@
+import pandas as pd
+import nltk
+from nltk.stem import PorterStemmer
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.corpus import stopwords,wordnet
+stop_words = stopwords.words('english')
+nltk.data.path.append("E:/Python Learning/NLTK All Packages/")
+from nltk.stem import WordNetLemmatizer
+wlt = WordNetLemmatizer()
+import gensim
+from gensim import corpora
+from gensim import models
+import seaborn as sns
+import matplotlib.pyplot as plt
+import pyLDAvis.gensim_models
+from nltk.corpus import stopwords
+"%matplotlib inline"
+data_file = pd.read_csv('E:/MS Thesis/Dataset MS Thesis/ALL DATA SQL/All Wave CSV/fourth_wave.csv')
+
+def preprocess(CleanText):
+    CleanText = CleanText.str.replace("(<br/>)", "")
+    CleanText = CleanText.str.replace('(<a).*(>).*(</a>)', '')
+    CleanText = CleanText.str.replace('(&amp)', '')
+    CleanText = CleanText.str.replace('(&gt)', '')
+    CleanText = CleanText.str.replace('(&lt)', '')
+    CleanText = CleanText.str.replace('(\xa0)', ' ')
+    return CleanText
+
+data_file['text'] = preprocess(data_file['text'])
+stopword = stopwords.words('english')
+# Removing stopwords and punctuations from the tweets
+data_file['text'] = data_file['text'].str.replace('[^\w\s]','')
+data_file['text'] = data_file['text'].astype(str).apply(lambda x: " ".join(x for x in x.split() if x not in stopword))
+
+def preprocess_tweets(customer):
+    corpus = []
+    stem = PorterStemmer()
+    lem = WordNetLemmatizer()
+    for tweets in customer['text']:
+        words = [w for w in word_tokenize(tweets) if (w not in stopword)]
+
+        words = [lem.lemmatize(w) for w in words if len(w) > 2]
+
+        corpus.append(words)
+    return corpus
+
+corpus = preprocess_tweets(data_file)
+
+# Creating bag of words model using gensim
+dic = gensim.corpora.Dictionary(corpus)
+bow_corpus = [dic.doc2bow(doc) for doc in corpus]
+
+# Build LDA model
+lda_model = gensim.models.ldamodel.LdaModel(corpus=bow_corpus,
+                                                id2word=dic,
+                                                num_topics=10,
+                                                random_state=10,
+                                                update_every=1,
+                                                chunksize=200,
+                                                passes=5,
+                                                alpha='auto',
+                                                eval_every=1,
+                                                iterations=100,
+                                                per_word_topics=True)
+
+for idx, topic in lda_model.print_topics(-1):
+    print('Topic: {} \nWords: {}'.format(idx, topic))
+
+# Visualize the topics
+vis = pyLDAvis.gensim_models.prepare(lda_model, bow_corpus, dic)
+pyLDAvis.save_html(vis, 'LDA_Visualization.html')
+
+fiz = plt.figure(figsize=(15, 30))
+for i in range(10):
+    df = pd.DataFrame(lda_model.show_topic(i), columns=['term', 'prob']).set_index('term')
+    #     df=df.sort_values('prob')
+
+    plt.subplot(5, 2, i + 1)
+    plt.title('topic ' + str(i + 1))
+    sns.barplot(x='prob', y=df.index, data=df, label='Cities', palette='Reds_d')
+    plt.xlabel('probability')
+
+plt.show()
