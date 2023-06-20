@@ -1,0 +1,15 @@
+import pandas as pd
+import seaborn as sns
+
+data_file = pd.read_csv ('E:/MS Thesis/Results/EDA/volume of tweets by topics.csv')
+
+fig = sns.barplot (
+   
+    x = data_file.head(6)['Topics'],
+    y= data_file.head(6)['Volume'] ,
+    #orientation = 'vertical'
+
+).set_title ("Topic wise volume of tweets")
+
+#saving the image result
+fig.figure.savefig ('output.png',bbox_inches = 'tight',dpi = 600)
